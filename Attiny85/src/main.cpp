@@ -17,10 +17,15 @@
 #endif
 
 
-#define FIRMWARE_VER 21    // Передается в ESP и на сервер в данных.
+#define FIRMWARE_VER 22    // Передается в ESP и на сервер в данных.
   
 /*
 Версии прошивок 
+
+22 - 2021.07.13 - dontsovcmc
+	1. переписана работа с watchdog: чип перезагрузится в случае сбоя
+	2. убрал чтение напряжения - будет в ESP
+	3. добавил MANUAL_TRANSMIT_MODE чтобы явно видеть когда по кнопке включили
 
 21 - 2021.07.01 - dontsovcmc
     1. переписана работа с watchdog
@@ -109,7 +114,6 @@ static ESPPowerPin esp(1);  // Питание на ESP
 struct Header info = {FIRMWARE_VER, 0, 0, 0, 0, WATERIUS_2C, 
 					   {CounterState_e::CLOSE, CounterState_e::CLOSE},
 				       {0, 0},
-					   {0, 0},
 					    0, 0
 					 };
 
@@ -129,6 +133,7 @@ volatile uint32_t wdt_count;
 /* Вектор прерываний сторожевого таймера watchdog */
 ISR( WDT_vect ) { 
 	++wdt_count;
+	WDTCR |= _BV(WDIE); 
 }  
 
 // Проверяем входы на замыкание. 
@@ -140,14 +145,12 @@ inline void counting() {
 
 	if (counter0.is_impuls()) {
 		info.data.value0++;	  //нужен т.к. при пробуждении запрашиваем данные
-		info.states.state0 = counter0.state;
 		info.adc.adc0 = counter0.adc;
 		storage.add(info.data);
 	}
 #ifndef LOG_ON
 	if (counter1.is_impuls()) {
 		info.data.value1++;
-		info.states.state1 = counter1.state;
 		info.adc.adc1 = counter1.adc;
 		storage.add(info.data);
 	}
@@ -164,17 +167,20 @@ void setup() {
 	noInterrupts();
 	info.service = MCUSR; // причина перезагрузки
 	MCUSR = 0;            // без этого не работает после перезагрузки по watchdog
-	wdt_disable();
-	interrupts();
+	//wdt_disable();
+    wdt_enable(WDTO_250MS);
+	WDTCR |= _BV(WDIE); 
+	interrupts(); 
 
 	set_sleep_mode( SLEEP_MODE_PWR_DOWN );
 
+	uint16_t size = storage.size();
 	if (storage.get(info.data)) { //не первая загрузка
-		info.resets = EEPROM.read(storage.size());
+		info.resets = EEPROM.read(size);
 		info.resets++;
-		EEPROM.write(storage.size(), info.resets);
+		EEPROM.write(size, info.resets);
 	} else {
-		EEPROM.write(storage.size(), 0);
+		EEPROM.write(size, 0);
 	}
 
 	wakeup_period = WAKEUP_PERIOD_DEFAULT;
@@ -194,24 +200,15 @@ void setup() {
 void loop() {
 	power_all_disable();  // Отключаем все лишнее: ADC, Timer 0 and 1, serial interface
 	
-    wdt_enable(WDTO_250MS); 
-	interrupts(); 
-
 	wdt_count = 0;
 	while ((wdt_count < wakeup_period) && !button.pressed())
 	{		
-		counting();
-		WDTCR |= _BV(WDIE); 
+		counting(); 
 		sleep_mode();
 	}
-		
-	wdt_disable();
-	interrupts(); 
 
 	power_all_enable();
 
-	storage.get(info.data);     // Берем из хранилища текущие значения импульсов
-	
 	LOG_BEGIN(9600);
 	LOG(F("Data:"));
 	LOG(info.data.value0);
@@ -242,7 +239,7 @@ void loop() {
 	LOG(F("ESP turn on"));
 	
 	while (!slaveI2C.masterGoingToSleep() && !esp.elapsed(wake_up_limit)) {
-
+		
 		counting();
 		delayMicroseconds(65000);
 
@@ -256,6 +253,7 @@ void loop() {
 	if (!slaveI2C.masterGoingToSleep()) {
 		LOG(F("ESP wake up fail"));
 	} else {
+
 		LOG(F("Sleep received"));
 	}
 	

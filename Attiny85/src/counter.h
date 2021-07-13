@@ -2,6 +2,7 @@
 #define _COUNTER_h
 
 #include <Arduino.h>
+#include <avr/wdt.h>
 
 // значения компаратора с pull-up
 //    : замкнут (0 ом) - намур-замкнут (1к5) - намур-разомкнут (5к5) - обрыв линии
@@ -33,7 +34,7 @@ struct CounterB
     uint8_t _pin;   // дискретный вход
     uint8_t _apin;  // номер аналогового входа
 
-    uint16_t adc;   // уровень замкнутого входа
+    uint8_t  adc;   // уровень замкнутого входа. всегда ниже 256
     uint8_t  state; // состояние входа
 
     explicit CounterB(uint8_t pin, uint8_t apin = 0)  
@@ -68,7 +69,7 @@ struct CounterB
         uint16_t a = aRead();
         if (is_close(a)) {
             _checks = TRIES;
-            adc = a;
+            adc = (uint8_t)a;
         }
         else {
             if (_checks >= 0) {
@@ -127,8 +128,9 @@ struct ButtonB
     unsigned long wait_release() {
 
         unsigned long press_time = millis();
-        while(pressed())
-            ;  
+        while(pressed()) {
+            wdt_reset();  
+        }
         return millis() - press_time;
     }
 };

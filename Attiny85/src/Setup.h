@@ -59,14 +59,9 @@ struct Data {
     uint32_t value1;
 };
 
-struct CounterState { // не добавляем в Data, т.к. та в буфере кольцевом
-    uint8_t  state0;  // состояние входа
-    uint8_t  state1; 
-};
-
 struct ADCLevel {
-    uint16_t      adc0;
-    uint16_t      adc1; 
+    uint8_t      adc0;
+    uint8_t      adc1; 
 };
 
 
@@ -112,7 +107,6 @@ struct Header {
     */
     uint8_t       model;
 
-    CounterState  states;  //TODO убрать
     Data          data;
     ADCLevel      adc;
 
@@ -120,9 +114,9 @@ struct Header {
 
     uint8_t       crc;
     uint8_t       reserved2;
-};  //24 байт
+};  //20 байт
 
-#define HEADER_DATA_SIZE 22
+#define HEADER_DATA_SIZE 18
 
 #define TX_BUFFER_SIZE HEADER_DATA_SIZE + 2
 
