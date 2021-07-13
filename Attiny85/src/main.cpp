@@ -128,9 +128,6 @@ volatile uint32_t wdt_count;
 
 /* Вектор прерываний сторожевого таймера watchdog */
 ISR( WDT_vect ) { 
-	wdt_reset();
-	WDTCR |= _BV(WDIE); 
-
 	++wdt_count;
 }  
 
@@ -165,9 +162,12 @@ inline void counting() {
 void setup() {
 
 	noInterrupts();
-	info.service = MCUSR; //причина перезагрузки
+	info.service = MCUSR; // причина перезагрузки
+	MCUSR = 0;            // без этого не работает после перезагрузки по watchdog
 	wdt_disable();
 	interrupts();
+
+	set_sleep_mode( SLEEP_MODE_PWR_DOWN );
 
 	if (storage.get(info.data)) { //не первая загрузка
 		info.resets = EEPROM.read(storage.size());
@@ -193,26 +193,21 @@ void setup() {
 // Главный цикл, повторящийся раз в сутки или при настройке вотериуса
 void loop() {
 	power_all_disable();  // Отключаем все лишнее: ADC, Timer 0 and 1, serial interface
-
-	set_sleep_mode( SLEEP_MODE_PWR_DOWN );
-
-	noInterrupts();
-
-	MCUSR = 0; // clear all interrupt flags
-    WDTCR = _BV( WDCE ) | _BV( WDE );
-	WDTCR = _BV( WDIE ) | _BV( WDE ) | _BV( WDP2 );
 	
+    wdt_enable(WDTO_250MS); 
 	interrupts(); 
 
 	wdt_count = 0;
-	
 	while ((wdt_count < wakeup_period) && !button.pressed())
 	{		
 		counting();
+		WDTCR |= _BV(WDIE); 
 		sleep_mode();
 	}
 		
 	wdt_disable();
+	interrupts(); 
+
 	power_all_enable();
 
 	storage.get(info.data);     // Берем из хранилища текущие значения импульсов
@@ -225,25 +220,28 @@ void loop() {
 	// Если пользователь нажал кнопку SETUP, ждем когда отпустит 
 	// иначе ESP запустится в режиме программирования (да-да кнопка на i2c и 2 пине ESP)
 	// Если кнопка не нажата или нажата коротко - передаем показания 
-	unsigned long wake_up_limit;
-	if (button.wait_release() > LONG_PRESS_MSEC) {
+	unsigned long wake_up_limit = WAIT_ESP_MSEC; // 120 секунд при передаче данных
 
-		LOG(F("SETUP pressed"));
-		slaveI2C.begin(SETUP_MODE);
-		wake_up_limit = SETUP_TIME_MSEC; // 10 мин при настройке
+	if (button.pressed()) {
+		if (button.wait_release() > LONG_PRESS_MSEC) {
+			LOG(F("SETUP pressed"));
+			slaveI2C.begin(SETUP_MODE);
+			wake_up_limit = SETUP_TIME_MSEC; // 10 мин при настройке
+
+		} else {
+			LOG(F("press button for transmitting"));
+			slaveI2C.begin(MANUAL_TRANSMIT_MODE);
+		}
+
 	} else {
-
 		LOG(F("wake up for transmitting"));
 		slaveI2C.begin(TRANSMIT_MODE);
-		wake_up_limit = WAIT_ESP_MSEC;   // 120 секунд при передаче данных
 	}
 
 	esp.power(true);
 	LOG(F("ESP turn on"));
 	
 	while (!slaveI2C.masterGoingToSleep() && !esp.elapsed(wake_up_limit)) {
-
-		info.voltage = readVcc();   // Текущее напряжение
 
 		counting();
 		delayMicroseconds(65000);
