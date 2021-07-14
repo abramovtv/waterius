@@ -111,9 +111,9 @@ static ButtonB  button(2);	   // PB2 кнопка (на линии SCL)
 static ESPPowerPin esp(1);  // Питание на ESP 
 
 // Данные
-struct Header info = {FIRMWARE_VER, 0, 0, 0, 0, WATERIUS_2C, 
-					   {CounterState_e::CLOSE, CounterState_e::CLOSE},
-				       {0, 0},
+struct Header info = {FIRMWARE_VER, 0, 0, WATERIUS_2C, 
+				       {0, 0},  //values
+				       {0, 0},  //adc
 					    0, 0
 					 };
 
@@ -133,7 +133,6 @@ volatile uint32_t wdt_count;
 /* Вектор прерываний сторожевого таймера watchdog */
 ISR( WDT_vect ) { 
 	++wdt_count;
-	WDTCR |= _BV(WDIE); 
 }  
 
 // Проверяем входы на замыкание. 
@@ -153,6 +152,12 @@ inline void counting() {
 		info.data.value1++;
 		info.adc.adc1 = counter1.adc;
 		storage.add(info.data);
+
+		delayMicroseconds(65000);
+		delayMicroseconds(65000);
+		delayMicroseconds(65000);
+		delayMicroseconds(65000);
+		delayMicroseconds(65000);
 	}
 #endif
 
@@ -167,9 +172,8 @@ void setup() {
 	noInterrupts();
 	info.service = MCUSR; // причина перезагрузки
 	MCUSR = 0;            // без этого не работает после перезагрузки по watchdog
-	//wdt_disable();
+	wdt_disable();
     wdt_enable(WDTO_250MS);
-	WDTCR |= _BV(WDIE); 
 	interrupts(); 
 
 	set_sleep_mode( SLEEP_MODE_PWR_DOWN );
@@ -204,6 +208,7 @@ void loop() {
 	while ((wdt_count < wakeup_period) && !button.pressed())
 	{		
 		counting(); 
+		WDTCR |= _BV(WDIE); 
 		sleep_mode();
 	}
 
@@ -240,6 +245,7 @@ void loop() {
 	
 	while (!slaveI2C.masterGoingToSleep() && !esp.elapsed(wake_up_limit)) {
 		
+		wdt_reset(); 
 		counting();
 		delayMicroseconds(65000);
 

@@ -33,7 +33,7 @@ bool UserClass::sendNewData(const Settings &settings, const SlaveData &data, con
     root["imp0"] =          data.impulses0;
     root["imp1"] =          data.impulses1;
     root["version"] =       data.version;
-    root["voltage"] =       (float)(data.voltage/1000.0);
+    root["voltage"] =       (float)(cdata.voltage/1000.0);
     root["version_esp"] =   FIRMWARE_VERSION;
     root["key"] =           settings.waterius_key;
     root["resets"] =        data.resets;

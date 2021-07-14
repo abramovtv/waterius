@@ -30,16 +30,13 @@ struct SlaveData {
     // Header
     uint8_t  version;     //Версия ПО Attiny
     uint8_t  service;     //Причина загрузки Attiny
-    uint32_t voltage;     //Напряжение питания в мВ (после включения wi-fi под нагрузкой )
 
     uint8_t  resets;   
     uint8_t  model;       //WATERIUS_CLASSIC или  WATERIUS_4C2W 
-    uint8_t  state0;      //Состояние, вход 0
-    uint8_t  state1;      //           вход 1
     uint32_t impulses0;   //Импульсов, канал 0
     uint32_t impulses1;   //           канал 1
-    uint16_t adc0;        //Уровень,   канал 0
-    uint16_t adc1;        //           канал 1
+    uint8_t  adc0;         //Уровень,   канал 0
+    uint8_t  adc1;         //           канал 1
     
     // HEADER_DATA_SIZE
 

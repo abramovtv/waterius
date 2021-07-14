@@ -55,9 +55,11 @@ void calculate_values(const Settings &sett, const SlaveData &data, CalculatedDat
 
 void loop()
 {
-    uint8_t mode = SETUP_MODE;//TRANSMIT_MODE;
+    uint8_t mode = SETUP_MODE; //TRANSMIT_MODE;
+
 	// спрашиваем у Attiny85 повод пробуждения и данные
     if (masterI2C.getMode(mode) && masterI2C.getSlaveData(data)) {
+        
         //Загружаем конфигурацию из EEPROM
         bool success = loadConfig(sett);
         if (!success) {
@@ -83,8 +85,9 @@ void loop()
 
             success = false;
         }
+
         if (success) {
-            if (mode == TRANSMIT_MODE) { 
+            if (mode != SETUP_MODE) { 
                 //Проснулись для передачи показаний
                 LOG_INFO(FPSTR(S_WIF), F("Starting Wi-fi"));
                 
@@ -115,7 +118,7 @@ void loop()
                         LOG_INFO(FPSTR(S_WIF), F("Status: ") << WiFi.status());
                         delay(300);
                     
-                        check_voltage(data, cdata);
+                        //check_voltage(data, cdata);
                         //В будущем добавим success, означающее, что напряжение не критично изменяется, можно продолжать
                         //иначе есть риск ошибки ESP и стирания конфигурации
                     }

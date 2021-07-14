@@ -86,16 +86,6 @@ struct Header {
     uint8_t       service; 
 
     /*
-    Напряжение питания в мВ.
-    */
-    uint16_t      voltage;
-
-    /*
-    Для совместимости с 0.10.0.
-    */
-    uint16_t      reserved;
-    
-    /*
     Количество перезагрузок.
     */
     uint8_t       resets;
@@ -114,9 +104,9 @@ struct Header {
 
     uint8_t       crc;
     uint8_t       reserved2;
-};  //20 байт
+};  //16 байт
 
-#define HEADER_DATA_SIZE 18
+#define HEADER_DATA_SIZE 14
 
 #define TX_BUFFER_SIZE HEADER_DATA_SIZE + 2
 

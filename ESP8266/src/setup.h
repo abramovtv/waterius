@@ -3,12 +3,15 @@
 
 #include <Arduino.h>
 
-#define FIRMWARE_VERSION "0.10.4"
+#define FIRMWARE_VERSION "0.11.0"
   
 
 /*
 Версии прошивки для ESP
 
+0.11.0 - 2021.07.13 - ESP читает напряжение
+                      обновлены данные от attiny
+                      
 0.10.4 - 2021.06.20 - Добавил серийные номера
 
 0.10.3 - 2021.04.02 - Исправления в прошивке attiny
@@ -113,7 +116,8 @@ struct CalculatedData {
     uint32_t delta0;
     uint32_t delta1;
 
-    uint32_t voltage_diff;
+    uint16_t voltage;
+    uint16_t voltage_diff;
     bool     low_voltage;
     int8_t   rssi;
 };
