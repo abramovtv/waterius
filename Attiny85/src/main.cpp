@@ -17,10 +17,13 @@
 #endif
 
 
-#define FIRMWARE_VER 22    // Передается в ESP и на сервер в данных.
+#define FIRMWARE_VER 23    // Передается в ESP и на сервер в данных.
   
 /*
 Версии прошивок 
+
+23 - 2022.02.17 - dontsovcmc 
+    1. проверка входов 8 раз в секунду. тестовая!
 
 22 - 2021.07.13 - dontsovcmc
 	1. переписана работа с watchdog: чип перезагрузится в случае сбоя
@@ -174,7 +177,7 @@ void setup() {
 	info.service = MCUSR; // причина перезагрузки
 	MCUSR = 0;            // без этого не работает после перезагрузки по watchdog
 	wdt_disable();
-    wdt_enable(WDTO_250MS);
+    wdt_enable(WDTO_120MS);
 	interrupts(); 
 
 	set_sleep_mode( SLEEP_MODE_PWR_DOWN );
