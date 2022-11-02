@@ -11,8 +11,12 @@
 // 3к3:  100-108 - 140-142  - 230 - 1000
 // 
 
-#define LIMIT_CLOSED       115   // < 115 - замыкание 
-#define LIMIT_NAMUR_CLOSED 170   // < 170 - намур замкнут
+// Если данный параметр раскомментирован, то мк погружается в сон при измерении АЦП
+//#define ADC_IN_SLEEP_MODE
+
+#define LIMIT_CLOSED       115   // < 115 - замыкание
+//#define LIMIT_NAMUR_CLOSED 170   // < 170 - намур замкнут
+#define LIMIT_NAMUR_CLOSED 512   // 1.5 вольта должно хватить для любого замкнутого контакта
 #define LIMIT_NAMUR_OPEN   800   // < 800 - намур разомкнут
                                  // > - обрыв
 
@@ -65,8 +69,12 @@ struct CounterB
     { 
         //Детектируем импульс когда он заканчивается!
         //По сути софтовая проверка дребега
-
-        uint16_t a = aRead();
+        #ifdef ADC_IN_SLEEP_MODE
+          extern uint16_t ADC_Value;
+          uint16_t a = ADC_Value;
+        #else
+          uint16_t a = aRead();
+        #endif
         if (is_close(a)) {
             _checks = TRIES;
             adc = a;
