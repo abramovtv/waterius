@@ -9,21 +9,24 @@
 // 0  : ?                ?                     ?                       ?
 // если на входе 3к3
 // 3к3:  100-108 - 140-142  - 230 - 1000
-// 
 
-// Если данный параметр раскомментирован, то мк погружается в сон при измерении АЦП
-//#define ADC_IN_SLEEP_MODE
 
-#define LIMIT_CLOSED       115   // < 115 - замыкание
-//#define LIMIT_NAMUR_CLOSED 170   // < 170 - намур замкнут
-#define LIMIT_NAMUR_CLOSED 512   // 1.5 вольта должно хватить для любого замкнутого контакта
-#define LIMIT_NAMUR_OPEN   800   // < 800 - намур разомкнут
-                                 // > - обрыв
+// #define LIMIT_CLOSED       115   // < 115 - замыкание
+// //#define LIMIT_NAMUR_CLOSED 170   // < 170 - намур замкнут
+// #define LIMIT_NAMUR_CLOSED 512   // 1.5 вольта должно хватить для любого замкнутого контакта
+// #define LIMIT_NAMUR_OPEN   800   // < 800 - намур разомкнут
+//                                  // > - обрыв
+// приведение к 8-ми разрядному значению АЦП
+#define LIMIT_CLOSED       ((uint8_t) 29)
+#define LIMIT_NAMUR_CLOSED ((uint8_t) 128)
+#define LIMIT_NAMUR_OPEN   ((uint8_t) 200)
 
-#define TRIES 3  //Сколько раз после окончания импульса 
-                 //должно его не быть, чтобы мы зарегистририровали импульс
 
-enum CounterState_e
+
+#define TRIES ((uint8_t) 3)   //Сколько раз после окончания импульса
+                              //должно его не быть, чтобы мы зарегистририровали импульс
+
+enum CounterState_e: uint8_t
 {
     CLOSE,
     NAMUR_CLOSE,
@@ -31,17 +34,17 @@ enum CounterState_e
     OPEN
 };
 
-struct CounterB 
+struct CounterB
 {
     int8_t _checks; // -1 <= _checks <= TRIES
-    
+
     uint8_t _pin;   // дискретный вход
     uint8_t _apin;  // номер аналогового входа
 
     uint16_t adc;   // уровень замкнутого входа
     uint8_t  state; // состояние входа
 
-    explicit CounterB(uint8_t pin, uint8_t apin = 0)  
+    explicit CounterB(uint8_t pin, uint8_t apin = 0)
       : _checks(-1)
       , _pin(pin)
       , _apin(apin)
@@ -51,30 +54,24 @@ struct CounterB
        DDRB &= ~_BV(pin);      // INPUT
     }
 
-    inline uint16_t aRead() 
-    {
-        PORTB |= _BV(_pin);      // INPUT_PULLUP
-        uint16_t ret = analogRead(_apin); // в TinyCore там работа с битами, оптимально
-        PORTB &= ~_BV(_pin);     // INPUT
-        return ret;
-    }
+    // inline uint16_t aRead()
+    // {
+    //     PORTB |= _BV(_pin);      // INPUT_PULLUP
+    //     uint16_t ret = analogRead(_apin); // в TinyCore там работа с битами, оптимально
+    //     PORTB &= ~_BV(_pin);     // INPUT
+    //     return ret;
+    // }
 
-    bool is_close(uint16_t a)
+    inline bool is_close(uint8_t a)
     {
         state = value2state(a);
         return state == CounterState_e::CLOSE || state == CounterState_e::NAMUR_CLOSE;
     }
 
-    bool is_impuls()
-    { 
+    inline bool is_impuls(uint8_t a)
+    {
         //Детектируем импульс когда он заканчивается!
         //По сути софтовая проверка дребега
-        #ifdef ADC_IN_SLEEP_MODE
-          extern uint16_t ADC_Value;
-          uint16_t a = ADC_Value;
-        #else
-          uint16_t a = aRead();
-        #endif
         if (is_close(a)) {
             _checks = TRIES;
             adc = a;
@@ -91,7 +88,7 @@ struct CounterB
     }
 
     // Возвращаем текущее состояние входа
-    inline enum CounterState_e value2state(uint16_t value) 
+    inline enum CounterState_e value2state(uint8_t value)
     {
         if (value < LIMIT_CLOSED) {
             return CounterState_e::CLOSE;
@@ -105,27 +102,27 @@ struct CounterB
     }
 };
 
-struct ButtonB 
+struct ButtonB
 {
     uint8_t _pin;   // дискретный вход
 
-    explicit ButtonB(uint8_t pin)  
+    explicit ButtonB(uint8_t pin)
       : _pin(pin)
     {
-        DDRB &= ~_BV(pin);      // INPUT
+        DDRB &= ~_BV(_pin);     // INPUT
         PORTB &= ~_BV(_pin);    // INPUT
     }
 
-    inline bool digBit() 
+    inline bool digBit()
     {
         return bit_is_set(PINB, _pin);
     }
 
-    // Проверка нажатия кнопки 
+    // Проверка нажатия кнопки
     bool pressed() {
 
         if (digBit() == LOW)
-        {	//защита от дребезга
+        {    //защита от дребезга
             delayMicroseconds(20000);  //нельзя delay, т.к. power_off
             return digBit() == LOW;
         }
@@ -137,7 +134,7 @@ struct ButtonB
 
         unsigned long press_time = millis();
         while(pressed()) {
-            wdt_reset();  
+            wdt_reset();
         }
         return millis() - press_time;
     }
