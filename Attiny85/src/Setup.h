@@ -29,11 +29,12 @@
     mySerial.println(x);
 #endif
 
-/*
-   1 минута примерно равна 240 пробуждениям
-*/
-#define ONE_MINUTE 240L
-
+#define WDT_PERIOD_PREV WDTO_250MS
+//#define WDT_PERIOD               WDTO_15MS
+#define WDT_PERIOD WDTO_30MS
+// WDT задаёт период как 16мс * (2 ^ WDTO), следовательно в одной секунде будет:
+#define ONE_SECOND ((uint8_t)(1000 / (1 << (WDT_PERIOD + 4))) + 1)
+#define ONE_MINUTE 60L
 /*
     Период отправки данных на сервер, мин.
 */
