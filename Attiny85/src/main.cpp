@@ -301,6 +301,7 @@ void loop()
 
 		if (count >= ONE_SECOND)
 		{
+			count = 0;
 			++count_sec;
 			if (count_sec > wakeup_period || button.pressed()) 
 			{
@@ -390,7 +391,7 @@ void loop()
 		LOG(F("Sleep received"));
 	}
 
-	delayMicroseconds(20000);
+	delayMicroseconds(30000);
 
 	esp.power(false);
 }
