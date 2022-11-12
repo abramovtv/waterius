@@ -98,7 +98,7 @@ void SlaveI2C::getWakeUpPeriod()
 
     if ((crc == crc_8(data, 2)) && (newPeriod != 0))
     {
-        wakeup_period = ONE_MINUTE * newPeriod;
+        wakeup_period = ONE_SECOND * 60L * newPeriod;
     }
 }
 

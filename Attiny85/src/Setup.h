@@ -29,15 +29,26 @@
     mySerial.println(x);
 #endif
 
+
 /*
-   1 минута примерно равна 240 пробуждениям
+    Период пробуждения во время подсчёта
 */
-#define ONE_MINUTE 240L
+#define WDT_PERIOD_COUNTING WDTO_30MS
+
+/*
+    Период проверки сторожевого таймера во время работы с ESP
+*/
+#define WDT_PERIOD_WAKEUP WDTO_250MS
+
+/*
+    Кол-во пробуждений за 1 минуту во время подсчёта
+*/
+#define ONE_SECOND 32
 
 /*
     Период отправки данных на сервер, мин.
 */
-#define WAKEUP_PERIOD_DEFAULT 15L * ONE_MINUTE
+#define WAKEUP_PERIOD_DEFAULT 1L * 60L * ONE_SECOND
 
 /*
     Аварийное отключение, если ESP зависнет и не пришлет команду "сон".

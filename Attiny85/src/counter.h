@@ -11,10 +11,11 @@
 // 3к3:  100-108 - 140-142  - 230 - 1000
 //
 
-#define LIMIT_CLOSED 115       // < 115 - замыкание
-#define LIMIT_NAMUR_CLOSED 170 // < 170 - намур замкнут
-#define LIMIT_NAMUR_OPEN 800   // < 800 - намур разомкнут
-                               // > - обрыв
+// приведение к 8-ми разрядному значению АЦП
+#define LIMIT_CLOSED       ((uint8_t) 29)
+#define LIMIT_NAMUR_CLOSED ((uint8_t) 128)
+#define LIMIT_NAMUR_OPEN   ((uint8_t) 200)
+
 
 #define TRIES 3 //Сколько раз после окончания импульса
                 //должно его не быть, чтобы мы зарегистририровали импульс
@@ -43,26 +44,17 @@ struct CounterB
         DDRB &= ~_BV(pin); // INPUT
     }
 
-    inline uint16_t aRead()
-    {
-        PORTB |= _BV(_pin);               // INPUT_PULLUP
-        uint16_t ret = analogRead(_apin); // в TinyCore там работа с битами, оптимально
-        PORTB &= ~_BV(_pin);              // INPUT
-        return ret;
-    }
-
-    bool is_close(uint16_t a)
+    inline bool is_close(uint16_t a)
     {
         state = value2state(a);
         return state == CounterState_e::CLOSE || state == CounterState_e::NAMUR_CLOSE;
     }
 
-    bool is_impuls()
+    inline bool is_impuls(uint8_t a)
     {
         //Детектируем импульс когда он заканчивается!
         //По сути софтовая проверка дребега
 
-        uint16_t a = aRead();
         if (is_close(a))
         {
             _checks = TRIES;
@@ -83,7 +75,7 @@ struct CounterB
     }
 
     // Возвращаем текущее состояние входа
-    inline enum CounterState_e value2state(uint16_t value)
+    inline enum CounterState_e value2state(uint8_t value)
     {
         if (value < LIMIT_CLOSED)
         {

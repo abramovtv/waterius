@@ -16,10 +16,13 @@
 TinyDebugSerial mySerial;
 #endif
 
-#define FIRMWARE_VER 25 // Передается в ESP и на сервер в данных.
+#define FIRMWARE_VER 26 // Передается в ESP и на сервер в данных.
 
 /*
 Версии прошивок
+
+26 - 2022.11.13 - dontsov
+    1. Тестовая прошивка для 32мс импульсов
 
 25 - 2022.11.09 - dontsov
     1. Единая прошивка Ватериуса и modkam zigbee версии
@@ -109,6 +112,27 @@ TinyDebugSerial mySerial;
 //
 // https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/extras/ATtiny_x5.md
 
+
+// включение подтягивающего резистора и АЦП
+#define ADC_START_T()    \
+	PORTB |= _BV(PB4);   \
+	ADCSRA |= _BV(ADEN); \
+	ADCSRA |= _BV(ADSC);
+
+// выключение подтягивающего резистора и АЦП
+#define ADC_STOP_T()      \
+	ADCSRA &= ~_BV(ADEN); \
+	PORTB &= ~_BV(PB4);
+
+// ожидание завершения преобразования АЦП;
+#define ADC_CHECK_T()          \
+	while (ADCSRA & _BV(ADSC)) \
+		;
+
+// чтение значения АЦП из регистра
+#define ADC_VALUE_T() ADCH
+
+
 static CounterB counter0(4, 2); // Вход 1, Blynk: V0, горячая вода PB4 ADC2
 static CounterB counter1(3, 3); // Вход 2, Blynk: V1, холодная вода (или лог) PB3 ADC3
 
@@ -137,59 +161,82 @@ static EEPROMStorage<Data> storage(20); // 8 byte * 20 + crc * 20
 
 SlaveI2C slaveI2C;
 
-volatile uint32_t wdt_count;
 
 /* Вектор прерываний сторожевого таймера watchdog */
 ISR(WDT_vect)
 {
-	++wdt_count;
+	// для экономии времени АЦП запускается сразу из прерывания
+	ADC_START_T();
 }
 
 // Проверяем входы на замыкание.
 // Замыкание засчитывается только при повторной проверке.
-inline void counting()
+inline void counting(uint8_t a)
 {
-
-	power_adc_enable(); //т.к. мы обесточили всё а нам нужен компаратор
-	adc_enable();		//после подачи питания на adc
-
-	if (counter0.is_impuls())
+	if (counter0.is_impuls(a))
 	{
 		info.data.value0++; //нужен т.к. при пробуждении запрашиваем данные
 		info.adc.adc0 = counter0.adc;
 		info.states.state0 = counter0.state;
 		storage.add(info.data);
 	}
-#ifndef LOG_ON
-	if (counter1.is_impuls())
-	{
-		info.data.value1++;
-		info.adc.adc1 = counter1.adc;
-		info.states.state1 = counter1.state;
-		storage.add(info.data);
-
-		// delayMicroseconds(65000);
-		// delayMicroseconds(65000);
-		// delayMicroseconds(65000);
-		// delayMicroseconds(65000);
-		// delayMicroseconds(65000);
-	}
-#endif
-
-	adc_disable();
-	power_adc_disable();
 }
+
 //Запрос периода при инициализции. Также период может изменится после настройки.
 // Настройка. Вызывается однократно при запуске.
 void setup()
 {
 
+
 	noInterrupts();
 	info.service = MCUSR; // причина перезагрузки
-	MCUSR = 0;			  // без этого не работает после перезагрузки по watchdog
-	wdt_disable();
-	wdt_enable(WDTO_250MS);
+
+	//-----------------------------------------------
+	// настройка системной частоты
+	CLKPR = _BV(CLKPCE);
+	// CLKPR = 2;           // установка предделителя частоты 1/4 (2 МГц)
+	CLKPR = 3; // установка предделителя частоты 1/8 (1 МГц)
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("nop");
+
+	// настройка входов порта
+	MCUCR &= ~_BV(PUD); // включение подтягивающих резисторов разрешено
+	DDRB = 0;			// все пины работают на вход
+	PORTB = 0;			// подтягивающие резисторы отключены
+	PORTB |= _BV(PB5);	// включение подтягивающего резистора на Reset
+						//-----------------------------------------------
+						// настройка ADC (возврат к стандартным настройкам)
+	// сброс: источник опорного напряжения Vcc, смещение вправо, порт ADC0 (PB5)
+	ADMUX = 0;
+	ADMUX |= _BV(ADLAR); // смещение влево (старшие 8 разрядов находятся в ADCH)
+	ADMUX |= _BV(MUX1);	 // для ADC2 (PB4)
+	// ADMUX |= _BV(MUX1) | _BV(MUX0); // для ADC3 (PB3)
+	//  сброс: выключено АЦП и флаги прерывния, предделитель = 2
+	ADCSRA = 0x1; // предделитель = 2
+	// ADCSRA |= _BV(ADEN);              // АЦП включено
+	// ADCSRA |= _BV(ADIF) | _BV(ADIE);  // разрешение прерывания по окончании преобразования
+	// сброс: free running mode
+	ADCSRB = 0;
+
+	// выключение цифрового входа для портов ADC2 (PB4) и ADC3 (PB3)
+	DIDR0 |= _BV(ADC2D) | _BV(ADC3D);
+
+	//-----------------------------------------------
+	// настройка сторожевого таймера
+	// сброс значения вызвавшего нештатную перезагрузку МК
+	MCUSR = 0; // без этого не работает после перезагрузки по watchdog
+
+	// включение сторожевого таймера с указанием периода срабатывания
+	wdt_enable(WDT_PERIOD_COUNTING);
+	// включение прерывания для WDT
+	WDTCR |= _BV(WDIE);
+	//-----------------------------------------------
+	// TCCR0B = 0;
+	// TCCR1  = 0;
 	interrupts();
+
 
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
@@ -224,22 +271,53 @@ void setup()
 // Главный цикл, повторящийся раз в сутки или при настройке вотериуса
 void loop()
 {
-	power_all_disable(); // Отключаем все лишнее: ADC, Timer 0 and 1, serial interface
+	static uint8_t adc = 0xff;
+	static uint8_t count = 0;       // счётчик 1 секунды
+	static uint32_t count_sec = 0;
 
-	wdt_count = 0;
-	while ((wdt_count < wakeup_period) && !button.pressed())
+	power_all_disable(); // Отключаем все лишнее: ADC, Timer 0 and 1, serial interface
+	power_adc_enable(); // Включаем ADC
+
+	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+	sleep_enable();
+	wdt_enable(WDT_PERIOD_COUNTING); // сторожевой таймер работает по основному циклу
+	WDTCR |= _BV(WDIE);
+
+	sleep_cpu(); // переход в deep sleep
+	WDTCR |= _BV(WDIE);
+
+	count_sec = 0;
+	while (true)
 	{
-		counting();
+		++count;
+
+		ADC_CHECK_T();
+		adc = ADC_VALUE_T(); // чтение значения АЦП в буфер
+		ADC_STOP_T();
+		sleep_cpu(); // переход в deep sleep
+
+		counting(adc);
 		WDTCR |= _BV(WDIE);
-		sleep_mode();
+
+		if (count >= ONE_SECOND)
+		{
+			++count_sec;
+			if (count_sec > wakeup_period || button.pressed()) 
+			{
+				break;
+			}
+		}
 	}
 
+	ADC_STOP_T();
 	power_all_enable();
-
+	wdt_enable(WDT_PERIOD_WAKEUP); // для общения с ESP
+	WDTCR |= _BV(WDIE);
 	LOG_BEGIN(9600);
 	LOG(F("Data:"));
 	LOG(info.data.value0);
 	LOG(info.data.value1);
+
 
 	// Если пользователь нажал кнопку SETUP, ждем когда отпустит
 	// иначе ESP запустится в режиме программирования (кнопка на i2c и 2 пине ESP)
@@ -258,8 +336,7 @@ void loop()
 	}
 	else
 	{
-
-		if (wdt_count < wakeup_period)
+		if (count_sec < wakeup_period)
 		{
 			LOG(F("Manual transmit wake up"));
 			slaveI2C.begin(MANUAL_TRANSMIT_MODE);
@@ -289,9 +366,12 @@ void loop()
 			storage.add(info.data);  // вдруг записали новое значение
 		}
 #endif
-		counting();
+		ADC_START_T();
+		ADC_CHECK_T();
+		counting(ADC_VALUE_T());
+		ADC_STOP_T();
 
-		delayMicroseconds(65000);
+		delayMicroseconds(30000); 
 
 		if (button.long_pressed())
 		{		   // wdt_reset внутри wait_release
