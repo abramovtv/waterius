@@ -118,7 +118,7 @@ struct ButtonB
 
         if (digBit() == LOW)
         {                             //защита от дребезга
-            delayMicroseconds(20000); //нельзя delay, т.к. power_off
+            delayMicroseconds(14000); //нельзя delay, т.к. power_off
             return digBit() == LOW;
         }
         return false;
@@ -127,7 +127,6 @@ struct ButtonB
     // Замеряем сколько времени нажата кнопка в мс
     unsigned long wait_release()
     {
-
         unsigned long press_time = millis();
         while (pressed())
         {
