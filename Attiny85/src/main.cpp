@@ -355,11 +355,11 @@ void loop()
 
 	while (!slaveI2C.masterGoingToSleep() && !esp.elapsed(wake_up_limit))
 	{
+
 		wdt_reset();
 
 #ifdef MODKAM_VERSION
 		info.voltage = readVcc(); // Текущее напряжение
-		wdt_reset();
 
 		if (flag_new_counter_value) {
 			flag_new_counter_value = false;
@@ -372,8 +372,7 @@ void loop()
 		counting(ADC_VALUE_T());
 		ADC_STOP_T();
 
-		delayMicroseconds(14000); 
-		wdt_reset();
+		delayMicroseconds(30000); 
 
 		if (button.long_pressed())
 		{		   // wdt_reset внутри wait_release
@@ -392,9 +391,7 @@ void loop()
 		LOG(F("Sleep received"));
 	}
 
-	wdt_reset();  // !!
-	delayMicroseconds(14000);
-	wdt_reset();  // !!
+	delayMicroseconds(30000);
 
 	esp.power(false);
 }
