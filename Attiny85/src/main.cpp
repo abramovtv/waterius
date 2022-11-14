@@ -16,12 +16,12 @@
 TinyDebugSerial mySerial;
 #endif
 
-#define FIRMWARE_VER 27 // Передается в ESP и на сервер в данных.
+#define FIRMWARE_VER 28 // Передается в ESP и на сервер в данных.
 
 /*
 Версии прошивок
 
-27 - 2022.11.13 - dontsov
+28 - 2022.11.13 - dontsov
     1. Тестовая прошивка для 32мс импульсов
 
 25 - 2022.11.09 - dontsov
@@ -176,6 +176,7 @@ inline void counting(uint8_t a)
 	if (counter0.is_impuls(a))
 	{
 		info.data.value0++; //нужен т.к. при пробуждении запрашиваем данные
+		info.data.value1 = counter0.adc; //во второй канал пишу adc чтобы увидеть в modkam
 		info.adc.adc0 = counter0.adc;
 		info.states.state0 = counter0.state;
 		storage.add(info.data);
