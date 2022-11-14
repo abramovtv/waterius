@@ -16,12 +16,12 @@
 TinyDebugSerial mySerial;
 #endif
 
-#define FIRMWARE_VER 26 // Передается в ESP и на сервер в данных.
+#define FIRMWARE_VER 27 // Передается в ESP и на сервер в данных.
 
 /*
 Версии прошивок
 
-26 - 2022.11.13 - dontsov
+27 - 2022.11.13 - dontsov
     1. Тестовая прошивка для 32мс импульсов
 
 25 - 2022.11.09 - dontsov
@@ -359,7 +359,7 @@ void loop()
 		wdt_reset();
 
 #ifdef MODKAM_VERSION
-		info.voltage = readVcc(); // Текущее напряжение
+		info.voltage = 3000; //readVcc(); // Текущее напряжение
 
 		if (flag_new_counter_value) {
 			flag_new_counter_value = false;
